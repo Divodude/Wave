@@ -1,0 +1,9 @@
+Django
+djangorestframework
+django-filter
+markdown
+django-filter
+Pillow
+channels 
+channels_redis
+ psycopg[binary]

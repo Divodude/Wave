@@ -30,4 +30,5 @@ urlpatterns = [
     path('api/', include(router.urls)),
     path('',include('api.urls')),
      path('admin/', admin.site.urls),
+    path('', lambda request: JsonResponse({'message': 'API Root OK'})),
 ]

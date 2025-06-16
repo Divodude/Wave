@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "525460766044",
+    "project_id": "musicappflutter-87ed5",
+    "storage_bucket": "musicappflutter-87ed5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:525460766044:android:a96937423ac5812ed71599",
+        "android_client_info": {
+          "package_name": "com.example.spotify_clone"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAcuMH6dPDWSxCH8pCtOo4qWm1QMhPpKGM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

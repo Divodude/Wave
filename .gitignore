@@ -1,4 +1,8 @@
-Flutter_Clone_Backend_REST_API\venv
-Flutter_Clone_Backend_REST_API\.env
+# Ignore Python virtual environment
+venv/
 
-Flutter_Clone_Backend_REST_API\media
+# Ignore environment variables file
+.env
+
+# Ignore uploaded media files (user uploads, images, etc.)
+media/

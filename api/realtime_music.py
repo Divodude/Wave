@@ -5,7 +5,6 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.core.cache import cache
 
-
 class MusicRoomConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -170,18 +169,24 @@ class MusicRoomConsumer(AsyncWebsocketConsumer):
         """Handle song change from host"""
         server_time = time.time()
         
-        # Update room state with new song
+        # Extract song data from the request
+        song_data = data.get('song_data', {})
+        
+        # Update room state with new song - ensure we store the actual values
         room_state = {
-            'song_url': data.get('song_url', ''),
-            'song_name': data.get('song_name', ''),
-            'artist_name': data.get('artist_name', ''),
-            'cover_image': data.get('cover_image', ''),
+            'song_url': song_data.get('url', ''),
+            'song_name': song_data.get('name', ''),
+            'artist_name': song_data.get('artist', ''),
+            'cover_image': song_data.get('song_cover', song_data.get('cover', '')),  # Handle both key names
             'current_position': 0,
             'last_action_time': server_time,
             'is_playing': data.get('auto_play', False),
         }
         
         await self.update_room_state(room_state)
+        
+        # Debug print to see what we're storing
+        print(f"Storing room state: {room_state}")
         
         # Broadcast to all participants
         await self.channel_layer.group_send(
@@ -190,6 +195,7 @@ class MusicRoomConsumer(AsyncWebsocketConsumer):
                 'type': 'music_control',
                 'action': 'song_change',
                 'server_timestamp': server_time,
+                'position': 0,  # Always 0 for song change
                 'song_data': {
                     'url': room_state['song_url'],
                     'name': room_state['song_name'],

@@ -9,6 +9,7 @@ from django.db import models
 class Album(models.Model):
     name = models.CharField(max_length=255)
     artist = models.CharField(max_length=255)
+    cover_image=models.FileField(upload_to='music_album_covers/',null=True,blank=True)
 
     def __str__(self):
         return f"{self.name} by {self.artist}"

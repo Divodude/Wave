@@ -5,7 +5,7 @@ from api.serializers import MusicSerializer, AlbumSerializer , MusicRoomSerializ
 from django_filters.rest_framework import DjangoFilterBackend
 import django_filters
 from rest_framework import viewsets
-from api import ratelimiter
+
 
 
 
@@ -59,7 +59,7 @@ class AlbumDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class MusicRoomViewSet(viewsets.ModelViewSet):
-    throttle_classes = [ratelimiter.AnonymousSessionTimeThrottle]
+   
 
     queryset = MusicRoom.objects.all()
     serializer_class = MusicRoomSerializer

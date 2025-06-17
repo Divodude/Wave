@@ -30,8 +30,8 @@ ENV DJANGO_SETTINGS_MODULE=music_backend.settings
 # Optional: collect static only if you actually serve static files
 # RUN python manage.py collectstatic --noinput
 
-# Expose port 8080 for Google Cloud Run
-EXPOSE 8080
+# Don't hardcode the port
+EXPOSE $PORT
 
-# Launch with ASGI using Uvicorn
-CMD ["uvicorn", "music_backend.asgi:application", "--host", "0.0.0.0", "--port", "8080"]
+# Use Daphne with dynamic port
+CMD daphne -b 0.0.0.0 -p $PORT music_backend.asgi:application

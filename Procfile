@@ -1,1 +1,1 @@
-web: uvicorn music_backend.asgi:application --host 0.0.0.0 --port 8080
+web: daphne -b 0.0.0.0 -p 8080 music_backend.asgi:application

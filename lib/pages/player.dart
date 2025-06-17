@@ -166,7 +166,7 @@ void dispose() {
 
   @override
   Widget build(BuildContext context) {
-    final String _songCoverUrl = widget.coverImage.isNotEmpty
+    final String songCoverUrl = widget.coverImage.isNotEmpty
       ? widget.coverImage
       :_audioPlayer.coverImage ;
     final screenHeight = MediaQuery.of(context).size.height;
@@ -207,28 +207,40 @@ void dispose() {
                         }, icon: Icon(Icons.arrow_downward)),
                       
                         
-                        TextButton.icon(
-  onPressed: (
+                       TextButton.icon(
+  onPressed: () async {
+    bool isSubscribed = await _audioPlayer.checkSubscriptionStatus();
 
-
-
-
-
-
-
-  ) {
+    if (isSubscribed) {
       _audioPlayer.pause();
-      Navigator.push( context, MaterialPageRoute(builder: (context) => Room_Sync()));
-      
-      
-      
-        },
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => Room_Sync()),
+      );
+    } else {
+      // Show alert to upgrade
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Subscription Required'),
+          content: const Text('Sync Room is available only for subscribed users.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  },
   icon: const Icon(Icons.groups, color: Colors.white),
   label: const Text(
     'SyncSong',
     style: TextStyle(color: Colors.white),
   ),
 )
+
 
                       ],
                     ),
@@ -248,7 +260,7 @@ void dispose() {
                               
                               image: DecorationImage(
                                 image: NetworkImage(
-                                    _songCoverUrl),
+                                    songCoverUrl),
                                 fit: BoxFit.cover,
                               ),
                               boxShadow: [

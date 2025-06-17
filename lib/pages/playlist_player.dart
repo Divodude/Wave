@@ -289,7 +289,7 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    final String _songCoverUrl = (_currentSong['coverImage'] ?? '').isNotEmpty
+    final String songCoverUrl = (_currentSong['coverImage'] ?? '').isNotEmpty
         ? _currentSong['coverImage']
         : _audioPlayer.coverImage;
     final screenHeight = MediaQuery.of(context).size.height;
@@ -385,7 +385,7 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(10),
                               image: DecorationImage(
-                                image: NetworkImage(_songCoverUrl),
+                                image: NetworkImage(songCoverUrl),
                                 fit: BoxFit.cover,
                               ),
                               boxShadow: [

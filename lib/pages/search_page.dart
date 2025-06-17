@@ -6,7 +6,7 @@ import 'package:spotify_clone/pages/player.dart';
 import "package:http/http.dart" as http;
 import 'package:hive/hive.dart';
 import 'package:spotify_clone/Hive_History.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
 
@@ -95,7 +95,7 @@ void History() {
       
       final response = await http.get(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: await getAuthHeaders(),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -119,6 +119,26 @@ void History() {
         _searchResults = [];
       });
     }
+  }
+
+
+
+
+
+
+
+   Future<String?> getAuthToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  // Create authenticated headers
+  Future<Map<String, String>> getAuthHeaders() async {
+    final token = await getAuthToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Token $token',
+    };
   }
 
   void _onSearchChanged(String query) {

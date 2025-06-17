@@ -5,6 +5,7 @@ import 'package:spotify_clone/Hive_History.dart';
 import 'package:hive/hive.dart';
 import 'package:spotify_clone/pages/player.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Home_Page extends StatefulWidget {
   const Home_Page({super.key});
@@ -19,12 +20,26 @@ class _Home_PageState extends State<Home_Page> {
   List<Map<String, dynamic>> topAlbums = [];
 
   // ⚠️ Use emulator-safe localhost
-  final String Link = "http://localhost:8000/album/";
-  final String Link_quick="http://localhost:8000/album/";
+  final String baseUrl = "http://localhost:8000";
   final Random _random = Random();
 
   void _changeGradient() {
     setState(() {});
+  }
+
+  // Get authentication token from SharedPreferences
+  Future<String?> getAuthToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  // Create authenticated headers
+  Future<Map<String, String>> getAuthHeaders() async {
+    final token = await getAuthToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Token $token',
+    };
   }
 
   void loadExploreSuggestions() {
@@ -63,37 +78,71 @@ class _Home_PageState extends State<Home_Page> {
     });
   }
 
+  // Updated fetchApi with authentication
   Future<List<dynamic>> fetchApi() async {
-    final response = await http.get(
-      Uri.parse(Link),
-      headers: {'Content-Type': 'application/json'},
-    );
+    try {
+      final headers = await getAuthHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/album/'),
+        headers: headers,
+      );
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as List<dynamic>;
-    } else {
-      throw Exception('Failed to load data: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as List<dynamic>;
+      } else if (response.statusCode == 401) {
+        // Token expired or invalid - redirect to login
+        _handleAuthError();
+        throw Exception('Authentication failed');
+      } else {
+        throw Exception('Failed to load data: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in fetchApi: $e');
+      throw e;
     }
   }
 
-
-
+  // Updated QuickPick with authentication
   Future<List<dynamic>> QuickPick() async {
-    final response = await http.get(
-      Uri.parse(Link_quick),
-      headers: {'Content-Type': 'application/json'},
-    );
+    try {
+      final headers = await getAuthHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/music/'), // Assuming this is the music endpoint
+        headers: headers,
+      );
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as List<dynamic>;
-    } else {
-      throw Exception('Failed to load data: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as List<dynamic>;
+      } else if (response.statusCode == 401) {
+        _handleAuthError();
+        throw Exception('Authentication failed');
+      } else {
+        throw Exception('Failed to load data: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in QuickPick: $e');
+      throw e;
     }
   }
 
-
-
-
+  // Handle authentication errors
+  void _handleAuthError() {
+    // Clear stored token
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('auth_token');
+    });
+    
+    // Show error message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Session expired. Please login again.'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    
+    // Navigate to login page
+    // Navigator.pushReplacementNamed(context, '/login');
+  }
 
   void loadTopAlbums() async {
     try {
@@ -112,24 +161,77 @@ class _Home_PageState extends State<Home_Page> {
       });
     } catch (e) {
       print("Error loading top albums: $e");
+      // Show user-friendly error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load albums: ${e.toString()}'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 
+  // Load quick picks with authentication
+  void loadQuickPick() async {
+    try {
+      final List<dynamic> quickPicks = await QuickPick();
+      
+      setState(() {
+        // Update your quick picks data structure here
+        // This depends on how you want to display quick picks
+      });
+    } catch (e) {
+      print("Error loading quick picks: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load quick picks: ${e.toString()}'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
 
+  // Check if user is authenticated on app start
+  Future<void> checkAuthentication() async {
+    final token = await getAuthToken();
+    if (token == null) {
+      // No token found, redirect to login
+      // Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
 
+    // Verify token is still valid
+    try {
+      final headers = await getAuthHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/subscription-status/'),
+        headers: headers,
+      );
 
-
-  void load_Quick_pick()async{
-    
-
+      if (response.statusCode != 200) {
+        _handleAuthError();
+      }
+    } catch (e) {
+      print('Error checking authentication: $e');
+      _handleAuthError();
+    }
   }
 
   @override
   void initState() {
     super.initState();
-    loadHiveSuggestions();
-    loadExploreSuggestions();
-    loadTopAlbums();
+    // Check authentication first
+    checkAuthentication().then((_) {
+      // Load data only if authenticated
+      loadHiveSuggestions();
+      loadExploreSuggestions();
+      loadTopAlbums();
+      loadQuickPick();
+    });
     Future.delayed(const Duration(seconds: 1), _changeGradient);
   }
 
@@ -163,7 +265,6 @@ class _Home_PageState extends State<Home_Page> {
               const SizedBox(height: 15),
               _TopAlbums(albums: topAlbums),
               const SizedBox(height: 30),
-        
               _buildExploreGrid(),
             ],
           ),
@@ -219,16 +320,17 @@ class _Home_PageState extends State<Home_Page> {
                           );
                         },
                         child: item['image'] != null
-    ? Image.network(
-        item['image'],
-        height: 110,
-        width: double.infinity,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) =>
-            const Icon(Icons.music_note, color: Colors.white, size: 60),
-      )
-    : const Icon(Icons.music_note, color: Colors.white, size: 60),
-
+                            ? Image.network(
+                                item['image'],
+                                height: 110,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(Icons.music_note,
+                                        color: Colors.white, size: 60),
+                              )
+                            : const Icon(Icons.music_note,
+                                color: Colors.white, size: 60),
                       ),
                     ),
                     const SizedBox(height: 8),

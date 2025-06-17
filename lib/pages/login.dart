@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:spotify_clone/pages/main_page.dart';
 
+import 'package:spotify_clone/pages/main_page.dart';
+import 'package:spotify_clone/authservice.dart';
 class Login_Page extends StatefulWidget {
   const Login_Page({super.key});
 
@@ -15,35 +15,23 @@ class _Login_PageState extends State<Login_Page> {
 
   bool isLoading = false;
 
-  Future<void> loginUser(String email, String password) async {
-    try {
-      setState(() => isLoading = true);
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => Main_Page()),
-      );
-    } on FirebaseAuthException catch (e) {
-      String errorMessage = 'An error occurred';
-      if (e.code == 'user-not-found') {
-        errorMessage = 'No user found for that email.';
-      } else if (e.code == 'wrong-password') {
-        errorMessage = 'Wrong password provided.';
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Something went wrong: $e')),
-      );
-    } finally {
-      setState(() => isLoading = false);
-    }
+Future<void> loginUser(String email, String password) async {
+  setState(() => isLoading = true);
+  final success = await AuthService().login(email, password);
+
+  setState(() => isLoading = false);
+  if (success) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const Main_Page()),
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Invalid email or password")),
+    );
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

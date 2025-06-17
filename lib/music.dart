@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:just_audio/just_audio.dart';
 import 'package:spotify_clone/sync_song.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 class Music {
   static final Music _instance = Music._internal();
@@ -68,6 +70,79 @@ class Music {
       },
     );
   }
+
+
+
+Future<bool> subscribeUserOnline({String plan = 'Premium'}) async {
+  final headers = await getAuthHeaders();
+
+  try {
+    final response = await http.post(
+      Uri.parse('http://127.0.0.1:8000/subscribe/'),
+      headers: headers,
+      body: jsonEncode({'plan_name': plan}),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final body = json.decode(response.body);
+      print("Subscription activated: $body");
+
+      // Optionally store status locally
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_subscribed', true);
+
+      return true;
+    } else {
+      print("Subscription failed: ${response.body}");
+      return false;
+    }
+  } catch (e) {
+    print("Subscription error: $e");
+    return false;
+  }
+}
+
+
+  Future<String?> getAuthToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  // Create authenticated headers
+  Future<Map<String, String>> getAuthHeaders() async {
+    final token = await getAuthToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Token $token',
+    };
+  }
+
+
+
+
+
+  Future<bool> checkSubscriptionStatus() async {
+  final headers = await getAuthHeaders();
+
+  try {
+    final response = await http.get(
+      Uri.parse('http://127.0.0.1:8000/subscription-status/'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['subscribed'] == true;
+    } else {
+      print("Failed to check subscription: ${response.statusCode}");
+      return false;
+    }
+  } catch (e) {
+    print("Subscription status error: $e");
+    return false;
+  }
+}
+
 
   // Private sync methods to avoid infinite loops
   Future<void> _syncPlay(String url, {Duration? position, Map<String, dynamic>? song}) async {

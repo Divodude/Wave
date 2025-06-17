@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 # Create your models here.
 
@@ -46,3 +47,17 @@ class AnonymousSessionUsage(models.Model):
 
     def __str__(self):
         return f"{self.session_key} - {self.date} - {self.seconds_used}s"
+
+
+class SubS(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    is_active = models.BooleanField(default=False)
+    plan_name = models.CharField(max_length=50, default="Free")
+    started_at = models.DateTimeField(auto_now_add=True)
+    def __str__(self):
+        return f"{self.user.username} - {self.plan_name} - {'Active' if self.is_active else 'Inactive'}"
+
+
+
+
+

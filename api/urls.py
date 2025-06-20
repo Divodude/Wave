@@ -17,12 +17,9 @@ urlpatterns = [
     path('music/<int:pk>/', view=MusicDetailView.as_view(), name='music-detail'),
     path('album/', view=AlbumListView.as_view(), name='album-list'),
     path('album/<int:pk>/', view=AlbumDetailView.as_view(), name='album-detail'),
-     path('register/', RegisterView.as_view(), name='register'),
+    path('register/', RegisterView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
     path('subscribe/', MockSubscribeView.as_view(), name='mock-subscribe'),
     path('subscription-status/', SubscriptionStatusView.as_view(), name='sub-status'),
 
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -5,9 +5,25 @@ from .models import SubS
 
 
 class MusicSerializer(serializers.ModelSerializer):
+    song_cover_url = serializers.SerializerMethodField()
+    song_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Music
         fields = '__all__'
+
+    def get_song_cover_url(self, obj):
+        try:
+            return obj.song_cover.url if obj.song_cover else None
+        except Exception as e:
+            return f"cover-error: {e}"
+
+    def get_song_url(self, obj):
+        try:
+            return obj.song.url if obj.song else None
+        except Exception as e:
+            return f"song-error: {e}"
+
 
 
 class AlbumSerializer(serializers.ModelSerializer):

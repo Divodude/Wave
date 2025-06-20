@@ -11,6 +11,19 @@ from rest_framework.permissions import IsAuthenticated
 
 
 
+from rest_framework import generics, permissions, status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.authtoken.models import Token
+
+from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
+from .models import SubS
+from .serializers import RegisterSerializer, SubscriptionSerializer
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework import permissions
+
+
 
 
 
@@ -51,7 +64,7 @@ class MusicDetailView(generics.RetrieveUpdateDestroyAPIView):
 class AlbumListView(generics.ListCreateAPIView):
     queryset = Album.objects.all()
     serializer_class = AlbumSerializer
-    permission_classes = [IsAuthenticated] 
+    permission_classes = [AllowAny] 
 class AlbumDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Album.objects.all()
     serializer_class = AlbumSerializer
@@ -72,24 +85,6 @@ class MusicRoomViewSet(viewsets.ModelViewSet):
 
 
 
-
-
-from rest_framework import generics, permissions, status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.authtoken.models import Token
-
-from django.contrib.auth import authenticate
-from django.contrib.auth.models import User
-from .models import SubS
-from .serializers import RegisterSerializer, SubscriptionSerializer
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework import permissions
-
-
-
-
-# ✅ REGISTER
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
@@ -102,7 +97,7 @@ class RegisterView(generics.CreateAPIView):
         return Response({'token': token.key})
 
 
-# ✅ LOGIN
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
@@ -117,7 +112,7 @@ class LoginView(APIView):
         return Response({'error': 'Invalid credentials'})
 
 
-# ✅ MOCK SUBSCRIPTION
+
 class MockSubscribeView(APIView):
     permission_classes = [AllowAny]
     
@@ -131,7 +126,7 @@ class MockSubscribeView(APIView):
         return Response({'message': 'Subscription activated!'})
 
 
-# ✅ CHECK SUBSCRIPTION STATUS
+
 class SubscriptionStatusView(APIView):
     permission_classes = [IsAuthenticated]
 

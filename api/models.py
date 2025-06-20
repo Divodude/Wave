@@ -4,34 +4,42 @@ from django.contrib.auth.models import User
 # Create your models here.
 
 
-
+from api.firebase_ import FirebaseStorage
 
 
 class Album(models.Model):
     name = models.CharField(max_length=255)
     artist = models.CharField(max_length=255)
-    cover_image=models.FileField(upload_to='music_album_covers/',null=True,blank=True)
+    cover_image = models.FileField(upload_to='music_album_covers/', null=True, blank=True, storage=FirebaseStorage())
 
     def __str__(self):
         return f"{self.name} by {self.artist}"
 
+    class Meta:
+        ordering = ['name']  # or use ['-id'] or any other consistent field
+
+
 
 class Music(models.Model):
-    song_cover = models.ImageField(upload_to='music_covers/', null=True, blank=True)
-    song = models.FileField(upload_to='music/',null=False)
-    name = models.CharField(max_length=255,db_index=True)
+    song_cover = models.ImageField(upload_to='music_covers/', null=True, blank=True, storage=FirebaseStorage())
+    song = models.FileField(upload_to='music/', null=False, storage=FirebaseStorage())
+    name = models.CharField(max_length=255, db_index=True)
     artist = models.CharField(max_length=255)
     duration = models.CharField(max_length=10, null=True, blank=True)
     song_album = models.ForeignKey(
         Album,
         on_delete=models.CASCADE,
-        related_name='songs',  # this is the key fix
+        related_name='songs',
         null=True,
         blank=True
     )
 
     def __str__(self):
         return f"{self.name} by {self.artist}"
+
+    class Meta:
+        ordering = ['name']  # or ['-id'], or ['artist', 'name']
+
 
 class MusicRoom(models.Model):
     name = models.CharField(max_length=100, unique=True)

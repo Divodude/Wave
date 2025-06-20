@@ -1,3 +1,4 @@
+
 FROM python:3.9-slim
 
 # Prevent .pyc files and force stdout/stderr logs
@@ -35,3 +36,4 @@ EXPOSE 8080
 
 # Launch with ASGI using Uvicorn
 CMD ["uvicorn", "music_backend.asgi:application", "--host", "0.0.0.0", "--port", "8080"]
+

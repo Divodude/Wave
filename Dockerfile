@@ -23,7 +23,7 @@ RUN pip install --upgrade pip && pip install --no-cache-dir -r req.txt
 COPY . .
 
 # Copy environment file
-COPY .env .
+
 
 # Explicitly set Django settings module (if not set via .env)
 ENV DJANGO_SETTINGS_MODULE=music_backend.settings

@@ -15,7 +15,7 @@ load_dotenv(find_dotenv())
 
 # Security settings
 SECRET_KEY=os.environ.get('DJANGO_SECRET_KEY')
-DEBUG =os.environ.get("DEBUG")
+DEBUG =False
 ALLOWED_HOSTS = ["*"] if DEBUG else ["api-1039005314066.europe-west1.run.app"]
 
 # Application definition

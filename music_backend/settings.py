@@ -36,6 +36,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -139,26 +140,36 @@ parsed = urllib.parse.urlparse(redis_url)
 REDIS_URL = os.environ.get("REDIS_URL")
 
 # Validate Redis URL
-if not REDIS_URL.startswith(('redis://', 'rediss://', 'unix://')):
-    REDIS_URL = f"redis://{REDIS_URL}"  # Add default scheme if missing
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [os.environ.get("REDIS_URL")],
-            "prefix": "sync_song",
-            "expiry": 10,  # Key expiry in seconds
-            "group_expiry": 120,  # Group expiry in seconds
-            "capacity": 1000,
-            "channel_capacity": {
-                "http.request": 200,
-                "http.response!*": 100,
-                "websocket.send": 500,
-            },
-        },
-    },
-}
+if REDIS_URL:
+    try:
+        # Ensure scheme is present
+        if not REDIS_URL.startswith(('redis://', 'rediss://', 'unix://')):
+            REDIS_URL = f"redis://{REDIS_URL}"
 
+        parsed = urllib.parse.urlparse(REDIS_URL)  # Optional: check structure
+
+        CHANNEL_LAYERS = {
+            'default': {
+                'BACKEND': 'channels_redis.core.RedisChannelLayer',
+                'CONFIG': {
+                    "hosts": [REDIS_URL],
+                    "prefix": "sync_song",
+                    "expiry": 10,
+                    "group_expiry": 120,
+                    "capacity": 1000,
+                    "channel_capacity": {
+                        "http.request": 200,
+                        "http.response!*": 100,
+                        "websocket.send": 500,
+                    },
+                },
+            },
+        }
+    except Exception as e:
+        print(f"[Redis Config Error] {e}")
+        REDIS_URL = None
+else:
+    print("[Warning] REDIS_URL environment variable not set.")
 
 
 # SSL Settings (for production)
@@ -169,24 +180,24 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
 
 
-
-
-import firebase_admin
-import json
-from firebase_admin import credentials, storage as fb_storage
-  # You can also load from file
+# In settings.py
+FIREBASE_ENABLED = False
 
 firebase_credentials_json = os.environ.get("FIREBASE_CREDENTIALS_JSON")
-
 if firebase_credentials_json:
     try:
+        import firebase_admin
+        from firebase_admin import credentials, storage as fb_storage
+        import json
+
         cred_dict = json.loads(firebase_credentials_json)
         cred = credentials.Certificate(cred_dict)
         firebase_admin.initialize_app(cred, {
             'storageBucket': 'face-recognition-3ba91.appspot.com'
         })
         DEFAULT_FILE_STORAGE = 'api.firebase.FirebaseStorage'
+        FIREBASE_ENABLED = True
     except json.JSONDecodeError:
-        raise ValueError("Invalid JSON in FIREBASE_CREDENTIALS_JSON environment variable.")
+        print("[Warning] FIREBASE_CREDENTIALS_JSON is not valid JSON")
 else:
-    raise ValueError("FIREBASE_CREDENTIALS_JSON environment variable not set.")
+    print("[Info] Firebase not initialized. FIREBASE_CREDENTIALS_JSON not set.")

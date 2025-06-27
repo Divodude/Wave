@@ -13,7 +13,7 @@ class SyncSong {
     Function(Map<String, dynamic>)? onRoomJoined,
     Function(String)? onError,
   }) {
-    final String url = 'ws://localhost:8000/ws/music/$roomid/';
+    final String url = 'ws://api-1039005314066.europe-west1.run.app/ws/music/$roomid/';
 
     try {
       channel = WebSocketChannel.connect(Uri.parse(url));

@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-
 import 'package:spotify_clone/music.dart';
 import 'package:spotify_clone/Hive_History.dart';
 import 'package:hive/hive.dart';
 import 'package:spotify_clone/pages/room.dart';
+import 'main_page.dart';
 
 class Player_Music extends StatefulWidget {
   final String songName;
@@ -20,27 +20,27 @@ class Player_Music extends StatefulWidget {
     this.artistName = "Unknown Artist",
     this.coverImage = "",
     required this.url,
-    this.timestamp=0.00,
+    this.timestamp = 0.00,
     this.Album = const [],
   });
 
   @override
   State<Player_Music> createState() => _Player_MusicState();
 }
-StreamSubscription? _positionSub;
-StreamSubscription? _stateSub;
-
 
 class _Player_MusicState extends State<Player_Music> {
-  final _audioPlayer = Music(); // singleton
+  final _audioPlayer = Music(); // Singleton
   double _currentSliderValue = 0;
   double _volumeValue = 0.7;
   bool _isPlaying = false;
   bool _isFavorite = false;
-   // Check if the user is the host
- bool isHost = false;
+  bool isHost = false;
+    Duration? get duration => _audioPlayer.player.duration;
+  Stream<Duration?> get durationStream => _audioPlayer.player.durationStream;
 
-  // Gradient animation variables
+  StreamSubscription? _positionSub;
+  StreamSubscription? _stateSub;
+
   final List<List<Color>> _gradients = [
     [Colors.deepPurple, Colors.blue],
     [Colors.blue, Colors.green],
@@ -52,86 +52,73 @@ class _Player_MusicState extends State<Player_Music> {
   int _currentGradientIndex = 0;
   Timer? _gradientTimer;
 
+  @override
+  void initState() {
+    super.initState();
+    isHost = _audioPlayer.isHost;
+
+    _audioPlayer.stop();
+
+    if (_audioPlayer.isHost) {
+      _audioPlayer.changeSong(
+        widget.url,
+        songName: widget.songName,
+        artistName: widget.artistName,
+        coverImage: widget.coverImage,
+        autoPlay: true,
+      );
+    } else {
+      _audioPlayer.play(
+        widget.url,
+        position: Duration(seconds: widget.timestamp.toInt()),
+        songName: widget.songName,
+        artistName: widget.artistName,
+        coverImage: widget.coverImage,
+      );
+    }
+
+    var box = Hive.box<HiveHistory>('historyBox');
+    bool exists = box.values.any((song) =>
+        song.songName?.toLowerCase().trim() == widget.songName.toLowerCase().trim() &&
+        song.artistName?.toLowerCase().trim() == widget.artistName.toLowerCase().trim());
+
+    if (!exists) {
+      box.add(HiveHistory(
+        songName: widget.songName,
+        artistName: widget.artistName,
+        imageUrl: widget.coverImage,
+        songUrl: widget.url,
+        duration: widget.timestamp.toInt(),
+      ));
+    }
+
+    _positionSub = _audioPlayer.positionStream.listen((position) {
+      setState(() {
+        _currentSliderValue = position.inSeconds.toDouble();
+      });
+    });
+
+    _stateSub = _audioPlayer.stateStream.listen((state) {
+      setState(() {
+        _isPlaying = state.playing;
+      });
+
+      if (_isPlaying) {
+        _startGradientAnimation();
+      } else {
+        _stopGradientAnimation();
+      }
+    });
+  }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    isHost = _audioPlayer.isHost;
-  }
-@override
-void initState() {
-  super.initState();
-
-  _audioPlayer.stop(); 
-  
-  if (_audioPlayer.isHost) {
-      print(_audioPlayer.isHost);
-    
-
-    _audioPlayer.changeSong(
-      widget.url, 
-      songName: widget.songName,
-      artistName: widget.artistName, 
-      coverImage: widget.coverImage,
-      autoPlay: true
-    );
-  } else {
-    print(_audioPlayer.isHost);
-    // For non-hosts, just load the song without playing (sync will handle it)
-   
-    _audioPlayer.play(
-      widget.url, 
-      position: Duration(seconds: widget.timestamp.toInt()),
-      songName: widget.songName,
-      artistName: widget.artistName,
-      coverImage: widget.coverImage
-    );
-    
-  }
-  
- var box = Hive.box<HiveHistory>('historyBox');
-
-// Check if song already exists
-bool exists = box.values.any((song) =>
-  song.songName?.toLowerCase().trim() == widget.songName.toLowerCase().trim() &&
-  song.artistName?.toLowerCase().trim() == widget.artistName.toLowerCase().trim()
-);
-
-if (!exists) {
-  box.add(HiveHistory(
-    songName: widget.songName,
-    artistName: widget.artistName,
-    imageUrl: widget.coverImage,
-    songUrl: widget.url,
-    duration: widget.timestamp.toInt(),
-  ));
-} else {
-  print("Skipped duplicate song: ${widget.songName} by ${widget.artistName}");
-}
-
-  
-_positionSub = _audioPlayer.positionStream.listen((position) {
-  setState(() {
-    _currentSliderValue = position.inSeconds.toDouble();
-  });
-});
-
-_stateSub = _audioPlayer.stateStream.listen((state) {
-  final isNowPlaying = state.playing;
-  setState(() {
-    _isPlaying = _audioPlayer.isPlaying;
-  });
-
-  if (isNowPlaying) {
-    _startGradientAnimation();
-  } else {
+  void dispose() {
     _stopGradientAnimation();
+    _positionSub?.cancel();
+    _stateSub?.cancel();
+    _audioPlayer.pause();
+    super.dispose();
   }
-});
-
-  
-}
-
 
   void _startGradientAnimation() {
     _gradientTimer?.cancel();
@@ -148,33 +135,20 @@ _stateSub = _audioPlayer.stateStream.listen((state) {
     _gradientTimer?.cancel();
   }
 
-  @override
-@override
-void dispose() {
-  _stopGradientAnimation();
-
-  _positionSub?.cancel();
-  _stateSub?.cancel();
-
-  _audioPlayer.pause(); // Or stop if you want to unload
-
-  super.dispose();
-}
-
-
-
+  String _formatTime(int seconds) {
+    final minutes = (seconds ~/ 60).toString();
+    final secs = (seconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$secs';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final String songCoverUrl = widget.coverImage.isNotEmpty
-      ? widget.coverImage
-      :_audioPlayer.coverImage ;
+    final String songCoverUrl =
+        widget.coverImage.isNotEmpty ? widget.coverImage : _audioPlayer.coverImage;
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-    
-    // Dynamic sizing based on screen size
     final albumArtSize = screenWidth * 0.7 > 300 ? 300.0 : screenWidth * 0.7;
-    
+
     return Scaffold(
       body: AnimatedContainer(
         duration: const Duration(seconds: 2),
@@ -189,78 +163,45 @@ void dispose() {
           child: SingleChildScrollView(
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                minHeight: screenHeight - MediaQuery.of(context).padding.top - MediaQuery.of(context).padding.bottom,
+                minHeight: screenHeight -
+                    MediaQuery.of(context).padding.top -
+                    MediaQuery.of(context).padding.bottom,
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    
-                    // Top Bar
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        IconButton(onPressed: (){
-
-                          Navigator.pop(context);
-                        }, icon: Icon(Icons.arrow_downward)),
-                      
-                        
-                       TextButton.icon(
-  onPressed: () async {
-    bool isSubscribed = await _audioPlayer.checkSubscriptionStatus();
-
-    if (isSubscribed) {
-      _audioPlayer.pause();
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => Room_Sync()),
-      );
-    } else {
-      // Show alert to upgrade
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Subscription Required'),
-          content: const Text('Sync Room is available only for subscribed users.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    }
-  },
-  icon: const Icon(Icons.groups, color: Colors.white),
-  label: const Text(
-    'SyncSong',
-    style: TextStyle(color: Colors.white),
-  ),
-)
-
-
+                        IconButton(
+                          onPressed: () {
+                            if (Navigator.canPop(context)) {
+                              Navigator.pop(context);
+                            } else {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => const Main_Page()),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.arrow_downward),
+                        ),
+                       
                       ],
                     ),
-
-                    // Main Content
                     Column(
                       children: [
                         SizedBox(height: screenHeight * 0.02),
-
-                        // Album Art
                         Center(
                           child: Container(
                             width: albumArtSize,
                             height: albumArtSize,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(10),
-                              
                               image: DecorationImage(
-                                image: NetworkImage(
-                                    songCoverUrl),
+                                image: NetworkImage(songCoverUrl),
                                 fit: BoxFit.cover,
                               ),
                               boxShadow: [
@@ -274,10 +215,7 @@ void dispose() {
                             ),
                           ),
                         ),
-
                         SizedBox(height: screenHeight * 0.03),
-
-                        // Song Info
                         Column(
                           children: [
                             Text(
@@ -301,9 +239,12 @@ void dispose() {
                             const SizedBox(height: 15),
                             IconButton(
                               icon: Icon(
-                                  _isFavorite ? Icons.favorite : Icons.favorite_border,
-                                  color: _isFavorite ? const Color.fromARGB(255, 225, 51, 51) : Colors.white54,
-                                  size: 30),
+                                _isFavorite ? Icons.favorite : Icons.favorite_border,
+                                color: _isFavorite
+                                    ? const Color.fromARGB(255, 225, 51, 51)
+                                    : Colors.white54,
+                                size: 30,
+                              ),
                               onPressed: () {
                                 setState(() {
                                   _isFavorite = !_isFavorite;
@@ -312,10 +253,7 @@ void dispose() {
                             ),
                           ],
                         ),
-
                         SizedBox(height: screenHeight * 0.02),
-
-                        // Progress Bar
                         Column(
                           children: [
                             SliderTheme(
@@ -341,40 +279,33 @@ void dispose() {
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                      _formatTime(_currentSliderValue.toInt()),
+                                  Text(_formatTime(_currentSliderValue.toInt()),
                                       style: const TextStyle(color: Colors.white54)),
-                                  const Text('3:30',
-                                      style: TextStyle(color: Colors.white54)),
+                                  Text(_formatTime(duration?.inSeconds ?? 0), style: TextStyle(color: Colors.white54)),
                                 ],
                               ),
                             ),
                           ],
                         ),
-
                         SizedBox(height: screenHeight * 0.02),
-
-                        // Controls
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             const Icon(Icons.shuffle, color: Colors.white54, size: 30),
-                            const Icon(Icons.skip_previous,
-                                color: Colors.white, size: 40),
+                            const Icon(Icons.skip_previous, color: Colors.white, size: 40),
                             GestureDetector(
                               onTap: () {
-  setState(() {
-    if (_isPlaying) {
-      _audioPlayer.pause();
-      _stopGradientAnimation();
-    } else {
-      _audioPlayer.resume();
-      _startGradientAnimation();
-    }
-    _isPlaying = !_isPlaying;
-  });
-},
-
+                                setState(() {
+                                  if (_isPlaying) {
+                                    _audioPlayer.pause();
+                                    _stopGradientAnimation();
+                                  } else {
+                                    _audioPlayer.resume();
+                                    _startGradientAnimation();
+                                  }
+                                  _isPlaying = !_isPlaying;
+                                });
+                              },
                               child: Container(
                                 width: 70,
                                 height: 70,
@@ -390,14 +321,11 @@ void dispose() {
                               ),
                             ),
                             const Icon(Icons.skip_next, color: Colors.white, size: 40),
-                          
                             const Icon(Icons.sync_alt_rounded, color: Colors.white54, size: 30),
                           ],
                         ),
                       ],
                     ),
-
-                    // Bottom Volume Control
                     Column(
                       children: [
                         SizedBox(height: screenHeight * 0.02),
@@ -437,11 +365,5 @@ void dispose() {
         ),
       ),
     );
-  }
-
-  String _formatTime(int seconds) {
-    final minutes = (seconds ~/ 60).toString().padLeft(1, '0');
-    final secs = (seconds % 60).toString().padLeft(2, '0');
-    return '$minutes:$secs';
   }
 }

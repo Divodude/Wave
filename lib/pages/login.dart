@@ -10,8 +10,8 @@ class Login_Page extends StatefulWidget {
 }
 
 class _Login_PageState extends State<Login_Page> {
-  TextEditingController emailAddress = TextEditingController();
-  TextEditingController password = TextEditingController();
+  TextEditingController emailAddress =TextEditingController(text:"wave");
+  TextEditingController password = TextEditingController(text:"wave@wave");
 
   bool isLoading = false;
 

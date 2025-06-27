@@ -33,7 +33,11 @@ class Music {
   String get coverImage => currentCoverImage ?? "";
   String get songUrl => currentSongUrl ?? "";
 
-  /// Initialize the sync adapter (usually called when user joins room)
+
+
+  
+
+  
   void initSync(String roomId) {
     is_syncing = true;
 
@@ -78,7 +82,7 @@ Future<bool> subscribeUserOnline({String plan = 'Premium'}) async {
 
   try {
     final response = await http.post(
-      Uri.parse('http://127.0.0.1:8000/subscribe/'),
+      Uri.parse('https://api-1039005314066.europe-west1.run.app/subscribe/'),
       headers: headers,
       body: jsonEncode({'plan_name': plan}),
     );
@@ -126,7 +130,7 @@ Future<bool> subscribeUserOnline({String plan = 'Premium'}) async {
 
   try {
     final response = await http.get(
-      Uri.parse('http://127.0.0.1:8000/subscription-status/'),
+      Uri.parse('https://api-1039005314066.europe-west1.run.app/subscription-status/'),
       headers: headers,
     );
 
@@ -189,7 +193,23 @@ Future<bool> subscribeUserOnline({String plan = 'Premium'}) async {
   // Public methods for host control
   Future<void> play(String url,
       {Duration? position, String? songName, String? artistName, String? coverImage}) async {
+        if (url.startsWith('http://')) {
+    url = url.replaceFirst('http://', 'https://');
+    print("Converted to HTTPS URL: $url");
+  }
+
+  try {
     await player.stop();
+    
+    if (!url.startsWith('https://')) {
+      print("Invalid URL format: $url");
+      throw Exception("Only HTTPS URLs are supported");
+    }
+     } catch (e) {
+    print("Error playing audio: $e");
+    rethrow;
+  }
+
     await player.setUrl(url);
     if (position != null) await player.seek(position);
     await player.play();

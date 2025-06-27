@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:spotify_clone/Hive_History.dart';
 import 'package:hive/hive.dart';
 import 'package:spotify_clone/pages/player.dart';
+import 'package:spotify_clone/pages/playlist_player.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
 class Home_Page extends StatefulWidget {
   const Home_Page({super.key});
 
@@ -17,10 +17,10 @@ class Home_Page extends StatefulWidget {
 class _Home_PageState extends State<Home_Page> {
   List<Map<String, dynamic>> musicSuggestions = [];
   List<Map<String, dynamic>> explormusicSuggestions = [];
-  List<Map<String, dynamic>> topAlbums = [];
+  List<Map<String, dynamic>> playlists = [];
 
-  // ⚠️ Use emulator-safe localhost
-  final String baseUrl = "http://localhost:8000";
+  
+ String baseUrl = "https://api-1039005314066.europe-west1.run.app";
   final Random _random = Random();
 
   void _changeGradient() {
@@ -62,57 +62,17 @@ class _Home_PageState extends State<Home_Page> {
     });
   }
 
-  void loadHiveSuggestions() {
-    final box = Hive.box<HiveHistory>('historyBox');
-    final entries = box.values.toList().reversed.take(10).toList();
-    setState(() {
-      musicSuggestions = entries
-          .map((entry) => {
-                'title': entry.songName ?? 'Unknown',
-                'image': entry.imageUrl ?? '',
-                'songurl': entry.songUrl ?? '',
-                'type': 'History',
-                'artistname': entry.artistName ?? 'Unknown',
-              })
-          .toList();
-    });
-  }
-
-  // Updated fetchApi with authentication
-  Future<List<dynamic>> fetchApi() async {
-    try {
-      final headers = await getAuthHeaders();
-      final response = await http.get(
-        Uri.parse('$baseUrl/album/'),
-        headers: headers,
-      );
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as List<dynamic>;
-      } else if (response.statusCode == 401) {
-        // Token expired or invalid - redirect to login
-        _handleAuthError();
-        throw Exception('Authentication failed');
-      } else {
-        throw Exception('Failed to load data: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error in fetchApi: $e');
-      throw e;
-    }
-  }
-
-  // Updated QuickPick with authentication
   Future<List<dynamic>> QuickPick() async {
     try {
       final headers = await getAuthHeaders();
       final response = await http.get(
-        Uri.parse('$baseUrl/music/'), // Assuming this is the music endpoint
+        Uri.parse('$baseUrl/music/'),
         headers: headers,
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body) as List<dynamic>;
+        final decoded = jsonDecode(response.body);
+return decoded['results'] as List<dynamic>;
       } else if (response.statusCode == 401) {
         _handleAuthError();
         throw Exception('Authentication failed');
@@ -121,66 +81,62 @@ class _Home_PageState extends State<Home_Page> {
       }
     } catch (e) {
       print('Error in QuickPick: $e');
-      throw e;
+      rethrow;
     }
   }
 
-  // Handle authentication errors
+  Future<List<dynamic>> fetchPlaylists() async {
+    try {
+      final headers = await getAuthHeaders();
+      final response = await http.get(
+        Uri.parse('$baseUrl/album/'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+       final decoded = jsonDecode(response.body);
+return decoded['results'] as List<dynamic>; //  Correct for paginated response
+
+      } else if (response.statusCode == 401) {
+        _handleAuthError();
+        throw Exception('Authentication failed');
+      } else {
+        throw Exception('Failed to load playlists: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in fetchPlaylists: $e');
+      rethrow;
+    }
+  }
+
   void _handleAuthError() {
-    // Clear stored token
     SharedPreferences.getInstance().then((prefs) {
       prefs.remove('auth_token');
     });
-    
-    // Show error message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Session expired. Please login again.'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    
-    // Navigate to login page
-    // Navigator.pushReplacementNamed(context, '/login');
-  }
 
-  void loadTopAlbums() async {
-    try {
-      final List<dynamic> albumsFromApi = await fetchApi();
-
-      setState(() {
-        topAlbums = albumsFromApi.map((album) {
-          final songs = album['songs'] as List<dynamic>;
-          final song = songs.isNotEmpty ? songs[0] : {};
-          return {
-            'title': album['name'] ?? 'Unknown Album',
-            'image': album['cover_image'] ?? '',
-            'type': album['artist'] ?? 'Unknown Artist',
-          };
-        }).toList();
-      });
-    } catch (e) {
-      print("Error loading top albums: $e");
-      // Show user-friendly error message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load albums: ${e.toString()}'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Session expired. Please login again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
-  // Load quick picks with authentication
   void loadQuickPick() async {
     try {
-      final List<dynamic> quickPicks = await QuickPick();
-      
+      final List<dynamic> quickPicksFromApi = await QuickPick();
       setState(() {
-        // Update your quick picks data structure here
-        // This depends on how you want to display quick picks
+        musicSuggestions = quickPicksFromApi.map((song) {
+          return {
+            'title': song['name'] ?? 'Unknown Title',
+            'image': song['song_cover'] ?? '',
+            'songurl': song['song'] ?? '',
+            'type': 'Quick Pick',
+            'artistname': song['artist'] ?? 'Unknown Artist',
+          };
+        }).toList();
       });
     } catch (e) {
       print("Error loading quick picks: $e");
@@ -195,16 +151,49 @@ class _Home_PageState extends State<Home_Page> {
     }
   }
 
-  // Check if user is authenticated on app start
+  void loadPlaylists() async {
+    try {
+      final List<dynamic> playlistsFromApi = await fetchPlaylists();
+
+      setState(() {
+        playlists = playlistsFromApi.map((playlist) {
+          return {
+            'id': playlist['id'],
+            'name': playlist['name'] ?? 'Unknown Playlist',
+            'image': playlist['cover_image'] ?? '',
+            'artist': playlist['artist'] ?? '',
+            'songs': (playlist['songs'] as List).map((song) {
+              return {
+                'url': song['song'] ?? '',
+                'songName': song['name'] ?? 'Unknown',
+                'artistName': song['artist'] ?? 'Unknown',
+                'coverImage':
+                    song['song_cover'] ?? playlist['cover_image'] ?? '',
+                'timestamp': 0.0,
+              };
+            }).toList(),
+          };
+        }).toList();
+      });
+    } catch (e) {
+      print("Error loading playlists: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load playlists: ${e.toString()}'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> checkAuthentication() async {
     final token = await getAuthToken();
     if (token == null) {
-      // No token found, redirect to login
-      // Navigator.pushReplacementNamed(context, '/login');
       return;
     }
 
-    // Verify token is still valid
     try {
       final headers = await getAuthHeaders();
       final response = await http.get(
@@ -224,13 +213,10 @@ class _Home_PageState extends State<Home_Page> {
   @override
   void initState() {
     super.initState();
-    // Check authentication first
     checkAuthentication().then((_) {
-      // Load data only if authenticated
-      loadHiveSuggestions();
       loadExploreSuggestions();
-      loadTopAlbums();
       loadQuickPick();
+      loadPlaylists();
     });
     Future.delayed(const Duration(seconds: 1), _changeGradient);
   }
@@ -257,13 +243,13 @@ class _Home_PageState extends State<Home_Page> {
               const SizedBox(height: 15),
               _buildQuickPicks(),
               const SizedBox(height: 30),
+              _buildSectionTitle('Your Playlists'),
+              const SizedBox(height: 15),
+              _PlaylistsGrid(playlists: playlists),
+              const SizedBox(height: 30),
               _buildSectionTitle('Top Genres'),
               const SizedBox(height: 15),
               _buildTopGenres(),
-              const SizedBox(height: 30),
-              _buildSectionTitle('Top Albums'),
-              const SizedBox(height: 15),
-              _TopAlbums(albums: topAlbums),
               const SizedBox(height: 30),
               _buildExploreGrid(),
             ],
@@ -319,7 +305,8 @@ class _Home_PageState extends State<Home_Page> {
                             ),
                           );
                         },
-                        child: item['image'] != null
+                        child: item['image'] != null &&
+                                (item['image'] as String).isNotEmpty
                             ? Image.network(
                                 item['image'],
                                 height: 110,
@@ -479,21 +466,25 @@ class _Home_PageState extends State<Home_Page> {
   }
 }
 
-class _TopAlbums extends StatefulWidget {
-  final List<Map<String, dynamic>> albums;
+class _PlaylistsGrid extends StatefulWidget {
+  final List<Map<String, dynamic>> playlists;
 
-  const _TopAlbums({required this.albums});
+  const _PlaylistsGrid({required this.playlists});
 
   @override
-  __TopAlbumsState createState() => __TopAlbumsState();
+  __PlaylistsGridState createState() => __PlaylistsGridState();
 }
 
-class __TopAlbumsState extends State<_TopAlbums> {
+class __PlaylistsGridState extends State<_PlaylistsGrid> {
   int _currentPage = 0;
 
   @override
   Widget build(BuildContext context) {
-    final pageCount = (widget.albums.length / 4).ceil();
+    if (widget.playlists.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final pageCount = (widget.playlists.length / 4).ceil();
 
     return Column(
       children: [
@@ -508,10 +499,10 @@ class __TopAlbumsState extends State<_TopAlbums> {
             },
             itemBuilder: (context, pageIndex) {
               final startIndex = pageIndex * 4;
-              final endIndex = (startIndex + 4 > widget.albums.length)
-                  ? widget.albums.length
+              final endIndex = (startIndex + 4 > widget.playlists.length)
+                  ? widget.playlists.length
                   : startIndex + 4;
-              final items = widget.albums.sublist(startIndex, endIndex);
+              final items = widget.playlists.sublist(startIndex, endIndex);
 
               return GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
@@ -524,44 +515,69 @@ class __TopAlbumsState extends State<_TopAlbums> {
                 itemCount: items.length,
                 itemBuilder: (context, index) {
                   var item = items[index];
-                  return _buildGlassCard(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                item['image'],
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Icon(Icons.broken_image,
-                                        color: Colors.white),
+                  return GestureDetector(
+                    onTap: () {
+                      final playlistSongs = item['songs'] as List<dynamic>;
+                      if (playlistSongs.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('This playlist has no songs')),
+                        );
+                        return;
+                      }
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PlaylistPlayer(
+                            playlist:
+                                playlistSongs.cast<Map<String, dynamic>>(),
+                            playlistName: item['name'],
+                            initialIndex: 0,
+                          ),
+                        ),
+                      );
+                    },
+                    child: _buildGlassCard(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  item['image'],
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder:
+                                      (context, error, stackTrace) =>
+                                          const Icon(Icons.queue_music,
+                                              color: Colors.white, size: 60),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            item['title'],
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                            const SizedBox(height: 8),
+                            Text(
+                              item['name'],
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            item['type'],
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.white70,
+                            const Text(
+                              'Playlist',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white70,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   );

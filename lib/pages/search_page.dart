@@ -39,6 +39,7 @@ void History() {
         .toList();
   });
 }
+String baseUrl = "https://api-1039005314066.europe-west1.run.app/";
 
 
 
@@ -91,7 +92,7 @@ void History() {
 
     try {
       final encodedQuery = Uri.encodeComponent(query);
-      final url = "http://localhost:8000/music/?title=$encodedQuery";
+      final url ='$baseUrl/music/?title=$encodedQuery';
       
       final response = await http.get(
         Uri.parse(url),
@@ -99,7 +100,8 @@ void History() {
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+         final decoded = jsonDecode(response.body);
+  final List<dynamic> data = decoded['results']; // ✅ Correctly extract the list
         setState(() {
           _searchResults = data;
           _isLoading = false;

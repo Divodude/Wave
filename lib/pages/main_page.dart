@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:spotify_clone/music.dart';
 import 'package:spotify_clone/pages/home_page.dart';
 import 'package:spotify_clone/pages/player.dart'; // adjust as needed
-import 'package:spotify_clone/pages/playlist.dart';
 import 'package:spotify_clone/pages/search_page.dart';
-import 'package:spotify_clone/pages/upload_page.dart'; // adjust as needed
-import 'package:spotify_clone/pages/room.dart';
+import 'package:spotify_clone/pages/upload_page.dart';
+import "room.dart"; // adjust as needed
 
 class Main_Page extends StatefulWidget {
   const Main_Page({super.key});
@@ -28,9 +27,10 @@ class _Main_PageState extends State<Main_Page> {
     Home_Page(),
     Player_Music(url:audio.songUrl ,
     songName: audio.songName,
-    coverImage: audio.coverImage,), // Adjust to your actual player widget
-    Library_Page(),
-    Room_Sync(),
+    coverImage: audio.coverImage,),
+    Room_Sync(), // Adjust to your actual player widget
+    
+   
 
   ];
     return  Scaffold(
@@ -100,10 +100,9 @@ class _Main_PageState extends State<Main_Page> {
       icon: Icon(Icons.play_arrow),
       label: 'Player',
     ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.library_music),
-      label: 'Library',
-    ),
+    BottomNavigationBarItem(icon: Icon(Icons.group),
+    label: "SyncSonf]g")
+    
 
 
 

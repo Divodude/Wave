@@ -1,4 +1,4 @@
-  import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:spotify_clone/authservice.dart';
 
@@ -8,9 +8,19 @@ import 'Hive_History.dart';
 
 import 'package:spotify_clone/pages/login.dart';
 import 'package:spotify_clone/pages/main_page.dart';
+import 'music.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 
 
 void main() async {
+   WidgetsFlutterBinding.ensureInitialized();
+   await dotenv.load(fileName: ".env");
+
+  Music();
+  
+
+
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   Hive.registerAdapter(HiveHistoryAdapter());
@@ -26,21 +36,36 @@ class MyAPP extends StatelessWidget {
   const MyAPP({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Spotify Clone',
-      home: FutureBuilder<bool>(
-        future: AuthService().isLoggedIn(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return snapshot.data! ? const Main_Page() : const Login_Page();
-        },
-      ),
-    );
-  }
+  @override
+Widget build(BuildContext context) {
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    title: 'Spotify Clone',
+    home: FutureBuilder<bool>(
+      future: AuthService().isLoggedIn(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text(
+                    "Authenticating...",
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return snapshot.data! ? const Main_Page() : const Login_Page();
+      },
+    ),
+  );
+}
+
 }

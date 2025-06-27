@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<media-projection>
+    <notification
+        channelId="audio_playback"
+        channelName="Audio Playback"
+        channelDescription="Audio playback controls"/>
+</media-projection>

@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-
 import 'package:spotify_clone/music.dart';
 import 'package:spotify_clone/Hive_History.dart';
 import 'package:hive/hive.dart';
-import 'package:spotify_clone/pages/room.dart';
 
+import 'dart:math'; // Add this import for Random
 class PlaylistPlayer extends StatefulWidget {
   final List<Map<String, dynamic>> playlist;
   final int initialIndex;
@@ -22,11 +21,8 @@ class PlaylistPlayer extends StatefulWidget {
   State<PlaylistPlayer> createState() => _PlaylistPlayerState();
 }
 
-StreamSubscription? _positionSub;
-StreamSubscription? _stateSub;
-
 class _PlaylistPlayerState extends State<PlaylistPlayer> {
-  final _audioPlayer = Music(); // singleton
+  final _audioPlayer = Music();
   double _currentSliderValue = 0;
   double _volumeValue = 0.7;
   bool _isPlaying = false;
@@ -35,11 +31,9 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
   bool _isRepeat = false;
   int _currentSongIndex = 0;
   bool isHost = false;
-
-  // Current song data
   late Map<String, dynamic> _currentSong;
 
-  // Gradient animation variables
+  // Gradient animation
   final List<List<Color>> _gradients = [
     [Colors.deepPurple, Colors.blue],
     [Colors.blue, Colors.green],
@@ -50,6 +44,8 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
   ];
   int _currentGradientIndex = 0;
   Timer? _gradientTimer;
+  StreamSubscription? _positionSub;
+  StreamSubscription? _stateSub;
 
   @override
   void didChangeDependencies() {
@@ -60,66 +56,93 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
   @override
   void initState() {
     super.initState();
-    
-    _currentSongIndex = widget.initialIndex;
-    _currentSong = widget.playlist[_currentSongIndex];
-    
-    _audioPlayer.stop();
-    
-    if (_audioPlayer.isHost) {
-      _audioPlayer.changeSong(
-        _currentSong['url'] ?? '',
-        songName: _currentSong['songName'] ?? 'Unknown Song',
-        artistName: _currentSong['artistName'] ?? 'Unknown Artist',
-        coverImage: _currentSong['coverImage'] ?? '',
-        autoPlay: true
-      );
-    } else {
-      _audioPlayer.play(
-        _currentSong['url'] ?? '',
-        position: Duration(seconds: (_currentSong['timestamp'] ?? 0.0).toInt()),
-        songName: _currentSong['songName'] ?? 'Unknown Song',
-        artistName: _currentSong['artistName'] ?? 'Unknown Artist',
-        coverImage: _currentSong['coverImage'] ?? ''
-      );
-    }
-    
-    _addToHistory(_currentSong);
-    
-    _positionSub = _audioPlayer.positionStream.listen((position) {
-      setState(() {
-        _currentSliderValue = position.inSeconds.toDouble();
+    _initializePlayer();
+  }
+
+  void _initializePlayer() {
+    if (widget.playlist.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This playlist has no songs')),
+        );
+        Navigator.pop(context);
       });
+      return;
+    }
+
+    _currentSongIndex = widget.initialIndex.clamp(0, widget.playlist.length - 1);
+    _currentSong = widget.playlist[_currentSongIndex];
+
+    _playCurrentSong();
+
+    _positionSub = _audioPlayer.positionStream.listen((position) {
+      if (mounted) {
+        setState(() {
+          _currentSliderValue = position.inSeconds.toDouble();
+        });
+      }
     });
 
     _stateSub = _audioPlayer.stateStream.listen((state) {
-      final isNowPlaying = state.playing;
-      setState(() {
-        _isPlaying = _audioPlayer.isPlaying;
-      });
+      if (mounted) {
+        setState(() {
+          _isPlaying = _audioPlayer.isPlaying;
+        });
 
-      if (isNowPlaying) {
-        _startGradientAnimation();
-      } else {
-        _stopGradientAnimation();
+        if (state.playing) {
+          _startGradientAnimation();
+        } else {
+          _stopGradientAnimation();
+        }
       }
     });
   }
 
+  void _playCurrentSong() {
+    if (_currentSong['url'] == null || _currentSong['url'].isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid song URL')),
+      );
+      return;
+    }
+
+    _audioPlayer.stop();
+
+    if (isHost) {
+      _audioPlayer.changeSong(
+        _currentSong['url'],
+        songName: _currentSong['songName'] ?? 'Unknown Song',
+        artistName: _currentSong['artistName'] ?? 'Unknown Artist',
+        coverImage: _currentSong['coverImage'] ?? '',
+        autoPlay: true,
+      );
+    } else {
+      _audioPlayer.play(
+        _currentSong['url'],
+        position: Duration(seconds: (_currentSong['timestamp'] ?? 0.0).toInt()),
+        songName: _currentSong['songName'] ?? 'Unknown Song',
+        artistName: _currentSong['artistName'] ?? 'Unknown Artist',
+        coverImage: _currentSong['coverImage'] ?? '',
+      );
+    }
+
+    _addToHistory(_currentSong);
+  }
+
   void _addToHistory(Map<String, dynamic> song) {
-    var box = Hive.box<HiveHistory>('historyBox');
+    final box = Hive.box<HiveHistory>('historyBox');
     
     bool exists = box.values.any((historyItem) =>
-      historyItem.songName?.toLowerCase().trim() == song['songName']?.toLowerCase().trim() &&
-      historyItem.artistName?.toLowerCase().trim() == song['artistName']?.toLowerCase().trim()
+      historyItem.songName?.toLowerCase().trim() == song['songName']?.toString().toLowerCase().trim() &&
+      historyItem.artistName?.toLowerCase().trim() == song['artistName']?.toString().toLowerCase().trim()
     );
 
     if (!exists) {
       box.add(HiveHistory(
-        songName: song['songName'] ?? 'Unknown Song',
-        artistName: song['artistName'] ?? 'Unknown Artist',
-        imageUrl: song['coverImage'] ?? '',
-        songUrl: song['url'] ?? '',
+        songName: song['songName']?.toString() ?? 'Unknown Song',
+        artistName: song['artistName']?.toString() ?? 'Unknown Artist',
+        imageUrl: song['coverImage']?.toString() ?? '',
+        songUrl: song['url']?.toString() ?? '',
         duration: (song['timestamp'] ?? 0.0).toInt(),
       ));
     }
@@ -128,7 +151,7 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
   void _startGradientAnimation() {
     _gradientTimer?.cancel();
     _gradientTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (_isPlaying) {
+      if (_isPlaying && mounted) {
         setState(() {
           _currentGradientIndex = (_currentGradientIndex + 1) % _gradients.length;
         });
@@ -141,8 +164,10 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
   }
 
   void _playNextSong() {
+    if (widget.playlist.isEmpty) return;
+
     if (_isShuffled) {
-      _currentSongIndex = (DateTime.now().millisecondsSinceEpoch % widget.playlist.length);
+      _currentSongIndex = Random().nextInt(widget.playlist.length);
     } else {
       _currentSongIndex = (_currentSongIndex + 1) % widget.playlist.length;
     }
@@ -150,8 +175,10 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
   }
 
   void _playPreviousSong() {
+    if (widget.playlist.isEmpty) return;
+
     if (_isShuffled) {
-      _currentSongIndex = (DateTime.now().millisecondsSinceEpoch % widget.playlist.length);
+      _currentSongIndex = Random().nextInt(widget.playlist.length);
     } else {
       _currentSongIndex = (_currentSongIndex - 1 + widget.playlist.length) % widget.playlist.length;
     }
@@ -159,31 +186,16 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
   }
 
   void _changeSong() {
+    _currentSongIndex = _currentSongIndex.clamp(0, widget.playlist.length - 1);
     _currentSong = widget.playlist[_currentSongIndex];
-    
-    if (_audioPlayer.isHost) {
-      _audioPlayer.changeSong(
-        _currentSong['url'] ?? '',
-        songName: _currentSong['songName'] ?? 'Unknown Song',
-        artistName: _currentSong['artistName'] ?? 'Unknown Artist',
-        coverImage: _currentSong['coverImage'] ?? '',
-        autoPlay: _isPlaying
-      );
-    } else {
-      _audioPlayer.play(
-        _currentSong['url'] ?? '',
-        position: Duration(seconds: (_currentSong['timestamp'] ?? 0.0).toInt()),
-        songName: _currentSong['songName'] ?? 'Unknown Song',
-        artistName: _currentSong['artistName'] ?? 'Unknown Artist',
-        coverImage: _currentSong['coverImage'] ?? ''
-      );
+    _playCurrentSong();
+
+    if (mounted) {
+      setState(() {
+        _currentSliderValue = 0;
+        _isFavorite = false;
+      });
     }
-    
-    _addToHistory(_currentSong);
-    setState(() {
-      _currentSliderValue = 0;
-      _isFavorite = false; // Reset favorite status for new song
-    });
   }
 
   void _showPlaylist() {
@@ -233,13 +245,13 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(5),
                         image: DecorationImage(
-                          image: NetworkImage(song['coverImage'] ?? ''),
+                          image: NetworkImage(song['coverImage']?.toString() ?? ''),
                           fit: BoxFit.cover,
                         ),
                       ),
                     ),
                     title: Text(
-                      song['songName'] ?? 'Unknown Song',
+                      song['songName']?.toString() ?? 'Unknown Song',
                       style: TextStyle(
                         color: isCurrentSong ? Colors.blue : Colors.white,
                         fontWeight: isCurrentSong ? FontWeight.bold : FontWeight.normal,
@@ -248,7 +260,7 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
-                      song['artistName'] ?? 'Unknown Artist',
+                      song['artistName']?.toString() ?? 'Unknown Artist',
                       style: TextStyle(
                         color: isCurrentSong ? Colors.blue.shade300 : Colors.white54,
                       ),
@@ -289,12 +301,11 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    final String songCoverUrl = (_currentSong['coverImage'] ?? '').isNotEmpty
-        ? _currentSong['coverImage']
+    final String songCoverUrl = (_currentSong['coverImage']?.toString() ?? '').isNotEmpty
+        ? _currentSong['coverImage'].toString()
         : _audioPlayer.coverImage;
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-    
     final albumArtSize = screenWidth * 0.7 > 300 ? 300.0 : screenWidth * 0.7;
     
     return Scaffold(
@@ -323,9 +334,7 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         IconButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
+                          onPressed: () => Navigator.pop(context),
                           icon: const Icon(Icons.arrow_downward, color: Colors.white),
                         ),
                         Column(
@@ -353,20 +362,7 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
                               onPressed: _showPlaylist,
                               icon: const Icon(Icons.queue_music, color: Colors.white),
                             ),
-                            TextButton.icon(
-                              onPressed: () {
-                                _audioPlayer.pause();
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => Room_Sync()),
-                                );
-                              },
-                              icon: const Icon(Icons.groups, color: Colors.white),
-                              label: const Text(
-                                'SyncSong',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
+                            
                           ],
                         ),
                       ],
@@ -406,19 +402,23 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
                         Column(
                           children: [
                             Text(
-                              _currentSong['songName'] ?? 'Unknown Song',
+                              _currentSong['songName']?.toString() ?? 'Unknown Song',
                               style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold),
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
                               textAlign: TextAlign.center,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              _currentSong['artistName'] ?? 'Unknown Artist',
-                              style: const TextStyle(color: Colors.white54, fontSize: 18),
+                              _currentSong['artistName']?.toString() ?? 'Unknown Artist',
+                              style: const TextStyle(
+                                color: Colors.white54, 
+                                fontSize: 18,
+                              ),
                               textAlign: TextAlign.center,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -426,9 +426,10 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
                             const SizedBox(height: 15),
                             IconButton(
                               icon: Icon(
-                                  _isFavorite ? Icons.favorite : Icons.favorite_border,
-                                  color: _isFavorite ? const Color.fromARGB(255, 225, 51, 51) : Colors.white54,
-                                  size: 30),
+                                _isFavorite ? Icons.favorite : Icons.favorite_border,
+                                color: _isFavorite ? const Color.fromARGB(255, 225, 51, 51) : Colors.white54,
+                                size: 30,
+                              ),
                               onPressed: () {
                                 setState(() {
                                   _isFavorite = !_isFavorite;
@@ -456,8 +457,8 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
                                 onChanged: (value) {
                                   setState(() {
                                     _currentSliderValue = value;
-                                    _audioPlayer.seek(Duration(seconds: value.toInt()));
                                   });
+                                  _audioPlayer.seek(Duration(seconds: value.toInt()));
                                 },
                               ),
                             ),
@@ -467,10 +468,13 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                      _formatTime(_currentSliderValue.toInt()),
-                                      style: const TextStyle(color: Colors.white54)),
-                                  const Text('3:30',
-                                      style: TextStyle(color: Colors.white54)),
+                                    _formatTime(_currentSliderValue.toInt()),
+                                    style: const TextStyle(color: Colors.white54),
+                                  ),
+                                  const Text(
+                                    '3:30',
+                                    style: TextStyle(color: Colors.white54),
+                                  ),
                                 ],
                               ),
                             ),
@@ -575,8 +579,8 @@ class _PlaylistPlayerState extends State<PlaylistPlayer> {
                                   onChanged: (value) {
                                     setState(() {
                                       _volumeValue = value;
-                                      _audioPlayer.setVolume(_volumeValue);
                                     });
+                                    _audioPlayer.setVolume(_volumeValue);
                                   },
                                 ),
                               ),

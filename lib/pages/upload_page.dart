@@ -22,7 +22,7 @@ class _UploadPageState extends State<UploadPage>
 
   late AnimationController _animationController;
   late Animation<double> _animation;
-  final base_url = 'http://localhost:8000/music/'; 
+  String base_url = "https://api-1039005314066.europe-west1.run.app/";
   final _titleController = TextEditingController();
   final _artistController = TextEditingController();
 

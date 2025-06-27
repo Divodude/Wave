@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow all traffic by default (safe for dev/testing only) -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Still enforce HTTPS for your GCP domain -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api-1039005314066.europe-west1.run.app</domain>
+    </domain-config>
+</network-security-config>

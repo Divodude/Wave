@@ -1,7 +1,13 @@
 # Music Backend API
 
 A Django-based music streaming backend with real-time synchronization capabilities, user authentication, and Firebase storage integration.
+## Screenshots
 
+| ![Screenshot 1](1750663650460.jpg) | ![Screenshot 2](1750663650466.jpg) |
+|------------------------------------|------------------------------------|
+| ![Screenshot 3](1750663650504.jpg) | ![Screenshot 4](1750663650568.jpg) |
+
+![Screenshot 5](1750663650602.jpg)
 ## Features
 
 - **Music Management**: Upload, organize, and stream music files
